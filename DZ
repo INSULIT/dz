@@ -1,104 +1,259 @@
 #include <iostream>
-#include <cstring>
+#include <string>
+#include <map>
+#include <cstdlib>
+#include <ctime>
+#include <vector>
+#include <conio.h> // Для getch() (только Windows)
 
-class Person {
+class Casino {
 private:
-    char* name;
-public:
-    Person(const char* name = "Unknown") {
-        this->name = new char[strlen(name) + 1];
-        strcpy(this->name, name);
-    }
+    std::map<std::string, std::pair<int, std::string>> accounts; // аккаунт: <баланс, пароль>
+    std::map<std::string, std::vector<std::string>> achievements;
+    std::string currentAccount;
 
-    Person(const Person& other) {
-        this->name = new char[strlen(other.name) + 1];
-        strcpy(this->name, other.name);
-    }
+    const int MAX_DEPOSIT = 1000000; // Максимальный лимит депозита
 
-    ~Person() {
-        delete[] name;
-    }
+    std::string getPasswordInput(const std::string& prompt) {
+        std::string password;
+        char ch;
 
-    void print() const {
-        std::cout << "Person: " << name << std::endl;
-    }
-};
-
-class Apartment {
-private:
-    Person** residents;
-    int numResidents;
-public:
-    Apartment(int numResidents = 0) : numResidents(numResidents) {
-        residents = new Person*[numResidents];
-        for (int i = 0; i < numResidents; ++i) {
-            residents[i] = nullptr;
-        }
-    }
-
-    Apartment(const Apartment& other) : numResidents(other.numResidents) {
-        residents = new Person*[numResidents];
-        for (int i = 0; i < numResidents; ++i) {
-            if (other.residents[i] != nullptr) {
-                residents[i] = new Person(*other.residents[i]);
-            } else {
-                residents[i] = nullptr;
+        std::cout << prompt;
+        while (true) {
+            ch = _getch(); // Считывает символ без отображения его в консоли
+            if (ch == '\r') { // Нажата клавиша Enter
+                std::cout << std::endl;
+                break;
+            }
+            else if (ch == '\b') { // Нажата клавиша Backspace
+                if (!password.empty()) {
+                    password.pop_back();
+                    std::cout << "\b \b"; // Удаляем звездочку в консоли
+                }
+            }
+            else {
+                password.push_back(ch);
+                std::cout << '*'; // Показываем звездочку вместо символа
             }
         }
+        return password;
     }
 
-    ~Apartment() {
-        for (int i = 0; i < numResidents; ++i) {
-            delete residents[i];
+    void displayReport(const std::string& action) {
+        std::cout << "\n==== Отчет ====\n";
+        std::cout << "Действие: " << action << "\n";
+        std::cout << "Пользователь: " << currentAccount << "\n";
+        std::cout << "Текущий баланс: $" << accounts[currentAccount].first << "\n";
+        std::cout << "================\n\n";
+    }
+
+    void checkAchievements() {
+        int balance = accounts[currentAccount].first;
+
+        if (balance >= 5000 && std::find(achievements[currentAccount].begin(), achievements[currentAccount].end(), "Магнат") == achievements[currentAccount].end()) {
+            achievements[currentAccount].push_back("Магнат");
+            std::cout << "Поздравляем! Вы достигли уровня 'Магнат' за баланс $5000 и более.\n";
         }
-        delete[] residents;
-    }
 
-    void addResident(int index, const char* name) {
-        if (index >= 0 && index < numResidents) {
-            residents[index] = new Person(name);
+        if (balance <= 0 && std::find(achievements[currentAccount].begin(), achievements[currentAccount].end(), "Несчастный") == achievements[currentAccount].end()) {
+            achievements[currentAccount].push_back("Несчастный");
+            std::cout << "Достижение 'Несчастный': Ваш баланс упал до $0.\n";
         }
     }
 
-    void print() const {
-        for (int i = 0; i < numResidents; ++i) {
-            if (residents[i] != nullptr) {
-                residents[i]->print();
-            } else {
-                std::cout << "Empty slot" << std::endl;
+    void deposit() {
+        int amount;
+        std::cout << "Введите сумму для депозита (максимум $" << MAX_DEPOSIT << "): ";
+        std::cin >> amount;
+
+        if (amount <= 0) {
+            std::cout << "Сумма должна быть положительной!\n";
+        }
+        else if (accounts[currentAccount].first + amount > MAX_DEPOSIT) {
+            std::cout << "Превышение лимита депозита! Максимальная сумма депозита: $" << MAX_DEPOSIT << "\n";
+        }
+        else {
+            accounts[currentAccount].first += amount;
+            std::cout << "Депозит успешно выполнен!\n";
+        }
+
+        displayReport("Депозит");
+    }
+
+    void playRoulette() {
+        int bet;
+        std::string color;
+        std::cout << "Введите сумму ставки: ";
+        std::cin >> bet;
+
+        if (bet > accounts[currentAccount].first) {
+            std::cout << "Недостаточно средств!\n";
+            displayReport("Недостаток средств для рулетки");
+            return;
+        }
+
+        std::cout << "Выберите цвет (красный/зеленый): ";
+        std::cin >> color;
+
+        // Нормализация ввода
+        for (auto& c : color) c = tolower(c);
+
+        if (color != "красный" && color != "зеленый") {
+            std::cout << "Выберите корректный цвет: красный или зеленый.\n";
+            return;
+        }
+
+        int result = std::rand() % 2; // 0 - зеленый, 1 - красный
+        std::string resultColor = (result == 0) ? "зеленый" : "красный";
+
+        // Симуляция "подсветки" результатов
+        std::cout << "\033[1;32m" << ((result == 0) ? "Зеленый!" : "") << "\033[0m";
+        std::cout << "\033[1;31m" << ((result == 1) ? "Красный!" : "") << "\033[0m\n";
+
+        if (color == resultColor) {
+            int winnings = bet * 2; // Выигрыш удваивается
+            accounts[currentAccount].first += winnings;
+            std::cout << "Поздравляем! Вы выиграли $" << winnings << "!\n";
+        }
+        else {
+            accounts[currentAccount].first -= bet;
+            std::cout << "Увы, вы проиграли.\n";
+        }
+
+        checkAchievements();
+        displayReport("Игра Рулетка");
+    }
+
+    void playBlackjack() {
+        int bet;
+        std::cout << "Добро пожаловать в игру 'Блэкджек'!\n";
+        std::cout << "Ваш текущий баланс: $" << accounts[currentAccount].first << "\n";
+        std::cout << "Введите сумму ставки: ";
+        std::cin >> bet;
+
+        if (bet > accounts[currentAccount].first) {
+            std::cout << "Недостаточно средств для ставки!\n";
+            displayReport("Недостаток средств для Блэкджека");
+            return;
+        }
+
+        // Списываем ставку
+        accounts[currentAccount].first -= bet;
+        std::cout << "Ставка $" << bet << " принята. Ваш текущий баланс: $" << accounts[currentAccount].first << "\n";
+
+        int playerScore = 0, dealerScore = 0;
+
+        // Игрок берет карты
+        while (true) {
+            int card = std::rand() % 10 + 1;
+            playerScore += card;
+            std::cout << "Вам выпала карта: " << card << ". Ваш счет: " << playerScore << "\n";
+
+            if (playerScore > 21) {
+                std::cout << "Вы перебрали! Вы проиграли.\n";
+                displayReport("Игра Блэкджек (проигрыш)");
+                return;
+            }
+
+            char choice;
+            std::cout << "Хотите взять еще карту? (y/n): ";
+            std::cin >> choice;
+            if (choice != 'y') break;
+        }
+
+        // Дилер берет карты
+        while (dealerScore < 17) {
+            int card = std::rand() % 10 + 1;
+            dealerScore += card;
+        }
+
+        std::cout << "Счет дилера: " << dealerScore << "\n";
+
+        // Определяем победителя
+        if (dealerScore > 21 || playerScore > dealerScore) {
+            std::cout << "Поздравляем! Вы выиграли.\n";
+            int winnings = bet * 2; // Выигрыш удваивается
+            accounts[currentAccount].first += winnings;
+            displayReport("Игра Блэкджек (выигрыш)");
+        }
+        else if (dealerScore == playerScore) {
+            std::cout << "У вас одинаковый счет с дилером! Ваша ставка возвращена.\n";
+            accounts[currentAccount].first += bet; // Возвращаем ставку
+            displayReport("Игра Блэкджек (ничья)");
+        }
+        else {
+            std::cout << "Дилер выиграл. Вы потеряли свою ставку.\n";
+            displayReport("Игра Блэкджек (проигрыш)");
+        }
+
+        checkAchievements();
+    }
+
+    void viewBalance() {
+        std::cout << "Ваш баланс: $" << accounts[currentAccount].first << "\n";
+        displayReport("Просмотр баланса");
+    }
+
+    void viewAchievements() {
+        std::cout << "Ваши достижения:\n";
+        if (achievements[currentAccount].empty()) {
+            std::cout << "У вас пока нет достижений.\n";
+        }
+        else {
+            for (const auto& achievement : achievements[currentAccount]) {
+                std::cout << "- " << achievement << "\n";
             }
         }
-    }
-};
 
-class House {
-private:
-    Apartment* apartments;
-    int numApartments;
+        displayReport("Просмотр достижений");
+    }
+
 public:
-    House(int numApartments = 0) : numApartments(numApartments) {
-        apartments = new Apartment[numApartments];
-    }
+    void registerAccount() {
+        std::string username, password;
+        std::cout << "Введите имя пользователя для регистрации: ";
+        std::cin >> username;
 
-    House(const House& other) : numApartments(other.numApartments) {
-        apartments = new Apartment[numApartments];
-        for (int i = 0; i < numApartments; ++i) {
-            apartments[i] = other.apartments[i];
+        if (accounts.find(username) != accounts.end()) {
+            std::cout << "Аккаунт с таким именем уже существует!\n";
+            return;
         }
-    }
 
-    ~House() {
-        delete[] apartments;
-    }
+        password = getPasswordInput("Введите пароль: ");
+        accounts[username] = { 1000, password }; // начальный баланс и пароль
+        std::cout << "Аккаунт успешно создан! Баланс: $1000\n";
 
-    Apartment& getApartment(int index) {
-        return apartments[index];
-    }
-
-    void print() const {
-        for (int i = 0; i < numApartments; ++i) {
-            std::cout << "Apartment " << i + 1 << ":" << std::endl;
-            apartments[i].print();
-        }
+        currentAccount = username;
+        std::cout << "Добро пожаловать, " << username << "!\n";
     }
 };
+
+int main() {
+    Casino casino;
+    char choice;
+
+    do {
+        std::cout << "Главное меню:\n";
+        std::cout << "1. Регистрация\n";
+        std::cout << "2. Вход в аккаунт\n";
+        std::cout << "3. Выход\n";
+        std::cout << "Выберите опцию: ";
+        std::cin >> choice;
+
+        switch (choice) {
+        case '1':
+            casino.registerAccount();
+            break;
+        case '2':
+            casino.loginAccount();
+            break;
+        case '3':
+            std::cout << "Спасибо за посещение казино!\n";
+            break;
+        default:
+            std::cout << "Неверный выбор!\n";
+        }
+    } while (choice != '3');
+
+    return 0;
+}
